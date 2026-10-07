@@ -35,6 +35,8 @@ small{color:var(--mu)}
 audio{width:100%;margin-top:8px}
 </style></head><body><main>
 <h1>🎧 Inventix Vox <small>· escucha en lugar de leer</small></h1>
+<div class="r" style="margin:0 0 12px"><button id="b1" class="p" onclick="tab(1)">📖 Leer</button><button id="b2" onclick="tab(2)">🎙️ Notas de voz</button></div>
+<div id="t1">
 <div class="c" id="bn" style="display:none;border-color:#c0392b"><b>Este navegador no tiene voz.</b><br>Abre este mismo enlace en Chrome (menú ⋮ → Abrir en navegador) para que se escuche.</div>
 
 <div class="c">
@@ -71,16 +73,13 @@ audio{width:100%;margin-top:8px}
 
 <div class="c"><b>Biblioteca</b><div id="lb"><small>Aún no hay textos guardados.</small></div></div>
 
-<div class="c"><b>🎙️ Notas de voz</b><br>
-<small>Graba una idea o importa un audio. Se guarda en este teléfono y sigue ahí cuando cierres la app.</small>
-<label>Categoría de la nota nueva</label>
-<select id="nc"><option>Canciones</option><option>Cómic</option><option>Metodología</option><option>Otras</option></select>
-<input type="text" id="nt" placeholder="Título (opcional)" style="margin-top:8px">
-<div class="r"><button id="rb" class="p" onclick="rec()">⏺ Grabar</button><button onclick="nfile.click()">📂 Importar audio</button><input type="file" id="nfile" accept="audio/*" multiple hidden></div>
-<small id="rm"></small>
-<label>Ver notas de</label>
-<select id="nf" onchange="lista()"><option value="">Todas</option><option>Canciones</option><option>Cómic</option><option>Metodología</option><option>Otras</option></select>
-<div id="nl"></div></div>
+</div><div id="t2" style="display:none">
+<div class="c" style="text-align:center"><button id="rb" class="p" onclick="rec()" style="width:100%;font-size:20px;padding:22px">⏺ Grabar idea</button>
+<div class="r"><button onclick="nfile.click()">📂 Importar audio que ya tengo</button><input type="file" id="nfile" accept="audio/*" multiple hidden></div>
+<small id="rm">Se guarda sola en este teléfono. Luego la clasificas.</small></div>
+<div class="c"><label style="margin-top:0">Ver</label>
+<select id="nf" onchange="lista()"><option value="">Todas</option><option>Sin clasificar</option><option>Canciones</option><option>Cómic</option><option>Metodología</option><option>Otras</option></select>
+<div id="nl"></div></div></div>
 </main>
 <script>
 const $=i=>document.getElementById(i),S=window.speechSynthesis||{getVoices:()=>[],cancel(){},speak(){},dummy:1};
@@ -120,20 +119,25 @@ async function tx(m,f){const db=await DB();return new Promise((ok,no)=>{const t=
 async function addN(o){try{await tx('readwrite',s=>s.put(o));if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();$('rm').textContent='✅ Nota guardada';lista()}catch(e){$('rm').textContent='No se pudo guardar la nota en este navegador.'}}
 async function delN(id){if(!confirm('¿Borrar esta nota?'))return;await tx('readwrite',s=>s.delete(id));lista()}
 const ext=t=>/mp4|aac|m4a/.test(t)?'m4a':/ogg/.test(t)?'ogg':/mpeg|mp3/.test(t)?'mp3':/wav/.test(t)?'wav':'webm';
+const CATS=['Sin clasificar','Canciones','Cómic','Metodología','Otras'];
+function tab(n){$('t1').style.display=n==1?'':'none';$('t2').style.display=n==2?'':'none';$('b1').className=n==1?'p':'';$('b2').className=n==2?'p':''}
+async function chg(id,f){const n=await tx('readonly',s=>s.get(id));if(!n)return;f(n);await tx('readwrite',s=>s.put(n));lista()}
 async function lista(){let a=[];try{a=(await tx('readonly',s=>s.getAll()))||[]}catch(e){$('rm').textContent='Este navegador no permite guardar notas.';return}
 const f=$('nf').value,L=a.filter(n=>!f||n.c===f).sort((x,y)=>y.id-x.id),box=$('nl');box.innerHTML=L.length?'':'<small>Aún no hay notas aquí.</small>';
-L.forEach(n=>{const w=document.createElement('div');w.style.cssText='padding:10px 0;border-top:1px solid var(--bd)';
-const h=document.createElement('div');h.innerHTML='<b></b><br><small></small>';h.firstChild.textContent=n.t;h.lastChild.textContent=n.c+' · '+new Date(n.id).toLocaleString('es-MX');
+L.forEach(n=>{const w=document.createElement('div');w.style.cssText='padding:12px 0;border-top:1px solid var(--bd)';
+const h=document.createElement('div');h.innerHTML='<b></b><br><small></small>';h.firstChild.textContent=n.t;h.lastChild.textContent=new Date(n.id).toLocaleString('es-MX');
 const au=document.createElement('audio');au.controls=true;const u=URL.createObjectURL(n.b);au.src=u;
+const sel=document.createElement('select');sel.style.marginTop='6px';CATS.forEach(c=>{const o=document.createElement('option');o.textContent=c;if(c===n.c)o.selected=true;sel.append(o)});sel.onchange=()=>chg(n.id,m=>m.c=sel.value);
 const d=document.createElement('a');d.href=u;d.download=n.t.replace(/[^\w\-áéíóúñ ]/gi,'_')+'.'+n.e;d.textContent='⬇ Descargar';d.style.marginRight='14px';
+const rn=document.createElement('a');rn.textContent='✏ Renombrar';rn.style.cssText='cursor:pointer;margin-right:14px';rn.onclick=()=>{const t=prompt('Nuevo título',n.t);if(t&&t.trim())chg(n.id,m=>m.t=t.trim())};
 const x=document.createElement('a');x.textContent='🗑 Borrar';x.style.cursor='pointer';x.onclick=()=>delN(n.id);
-const r=document.createElement('div');r.className='r';r.append(d,x);w.append(h,au,r);box.append(w)})}
+const r=document.createElement('div');r.className='r';r.style.justifyContent='flex-start';r.append(d,rn,x);w.append(h,au,sel,r);box.append(w)})}
 let mr,ch=[];
 async function rec(){const b=$('rb');if(mr&&mr.state==='recording'){mr.stop();return}
 try{const s=await navigator.mediaDevices.getUserMedia({audio:true});mr=new MediaRecorder(s);ch=[];
 mr.ondataavailable=e=>ch.push(e.data);
-mr.onstop=()=>{s.getTracks().forEach(t=>t.stop());const bl=new Blob(ch,{type:mr.mimeType});const t=$('nt').value.trim()||('Nota '+new Date().toLocaleDateString('es-MX'));addN({id:Date.now(),t,c:$('nc').value,e:ext(mr.mimeType),b:bl});$('nt').value='';b.textContent='⏺ Grabar'};
+mr.onstop=()=>{s.getTracks().forEach(t=>t.stop());const bl=new Blob(ch,{type:mr.mimeType});addN({id:Date.now(),t:'Nota '+new Date().toLocaleString('es-MX'),c:'Sin clasificar',e:ext(mr.mimeType),b:bl});b.textContent='⏺ Grabar idea'};
 mr.start();b.textContent='⏹ Detener y guardar';$('rm').textContent='Grabando…'}catch(e){$('rm').textContent='No se pudo acceder al micrófono (revisa permisos).'}}
-$('nfile').onchange=async e=>{for(const f of e.target.files){await addN({id:Date.now()+Math.floor(Math.random()*999),t:f.name.replace(/\.[^.]+$/,''),c:$('nc').value,e:ext(f.type||f.name),b:f})}e.target.value=''};
+$('nfile').onchange=async e=>{for(const f of e.target.files){await addN({id:Date.now()+Math.floor(Math.random()*999),t:f.name.replace(/\.[^.]+$/,''),c:'Sin clasificar',e:ext(f.type||f.name),b:f})}e.target.value=''};
 fillP();loadV();pl();lista();if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script></body></html>
