@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Inventix Vox</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#0f6e56">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f5f1;--card:#fff;--tx:#1d1d1b;--mu:#6b6a65;--ac:#0f6e56;--bd:#ddd9cf;--hl:#ffe9a8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17181a;--card:#222426;--tx:#eceae4;--mu:#9a988f;--ac:#3ec9a0;--bd:#38393b;--hl:#5b4a12}}
+:root[data-theme="dark"]{--bg:#17181a;--card:#222426;--tx:#eceae4;--mu:#9a988f;--ac:#3ec9a0;--bd:#38393b;--hl:#5b4a12}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 12px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:13px;color:var(--mu);margin:8px 0 4px}
+textarea,select,input[type=text]{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit}
+textarea{min-height:130px;resize:vertical}
+input[type=range]{width:100%;accent-color:var(--ac)}
+button{padding:10px 14px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font:inherit;cursor:pointer}
+button.p{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}
+.r{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.r>*{flex:1 1 auto}
+#rd{max-height:220px;overflow-y:auto;font-size:17px;line-height:1.7}
+#rd span{cursor:pointer;border-radius:4px;padding:1px 0}
+#rd span.on{background:var(--hl)}
+.bar{height:6px;background:var(--bd);border-radius:3px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;width:0;background:var(--ac)}
+.li{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.li:last-child{border:0}
+.li a{cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+small{color:var(--mu)}
+audio{width:100%;margin-top:8px}
+</style></head><body><main>
+<h1>🎧 Inventix Vox <small>· escucha en lugar de leer</small></h1>
+<div class="c" id="bn" style="display:none;border-color:#c0392b"><b>Este navegador no tiene voz.</b><br>Abre este mismo enlace en Chrome (menú ⋮ → Abrir en navegador) para que se escuche.</div>
+
+<div class="c">
+<b>Paso 1 · Tu texto</b><label>Pega el texto aquí, o cárgalo desde un archivo</label>
+<textarea id="tx" placeholder="Pega aquí el texto que quieres escuchar…"></textarea>
+<div class="r">
+<button onclick="f.click()">📄 Cargar archivo de texto</button>
+<button onclick="guardar()">💾 Guardar este texto para después</button>
+<input type="file" id="f" accept=".txt,.md,text/plain" hidden>
+</div></div>
+
+<div class="c">
+<b>Paso 2 · Elige quién lee</b><label>Lector</label>
+<select id="pf"></select>
+<label>Voz</label>
+<select id="vz"></select>
+<label>Velocidad: <b id="rv">1.0</b>×</label>
+<input type="range" id="rt" min="0.5" max="2" step="0.05" value="1" style="direction:ltr">
+<label>Tono: <b id="pv">1.0</b></label>
+<input type="range" id="pt" min="0.5" max="1.5" step="0.05" value="1">
+<div class="r"><input type="text" id="pn" placeholder="Nombre para tu lector (ej. Israel)"><button onclick="nuevoP()">+ Guardar como lector nuevo</button><button onclick="borraP()">Borrar</button></div>
+</div>
+
+<div class="c">
+<b>Paso 3 · Escucha</b>
+<div id="rd"><small>El texto aparecerá aquí al darle ▶ Escuchar.</small></div>
+<div class="bar"><i id="pg"></i></div>
+<div class="r">
+<button onclick="mv(-1)">⏮</button>
+<button class="p" id="pl" onclick="tog()" style="flex:3">▶ Escuchar</button>
+<button onclick="mv(1)">⏭</button>
+<button onclick="stop()">⏹</button>
+</div></div>
+
+<div class="c"><b>Biblioteca</b><div id="lb"><small>Aún no hay textos guardados.</small></div></div>
+
+<div class="c"><b>🎙️ Grabadora de voz</b><br>
+<small>Graba tu propia voz (notas o lectura propia) y reprodúcela. Clonar tu voz para que la app lea cualquier texto requiere un servicio en la nube; aquí usamos las voces de tu dispositivo.</small>
+<div class="r"><button id="rb" onclick="rec()">⏺ Grabar</button></div>
+<div id="au"></div><small id="rm"></small></div>
+</main>
+<script>
+const $=i=>document.getElementById(i),S=window.speechSynthesis||{getVoices:()=>[],cancel(){},speak(){},dummy:1};
+let ss=[],ix=0,on=false,tk=0,vs=[];
+const st={get(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let P=st.get('lv_p',[{n:'Narrador',v:'',r:1,p:1},{n:'Pausado',v:'',r:.85,p:.95},{n:'Rápido',v:'',r:1.4,p:1}]);
+function loadV(){vs=S.getVoices().sort((a,b)=>(b.lang.startsWith('es')-a.lang.startsWith('es'))||a.name.localeCompare(b.name));
+$('vz').innerHTML=vs.map(v=>`<option value="${v.voiceURI}">${v.name} (${v.lang})</option>`).join('')||'<option>Sin voces disponibles</option>';applyP()}
+S.onvoiceschanged=loadV;[300,1000,2500].forEach(t=>setTimeout(loadV,t));
+function fillP(){$('pf').innerHTML=P.map((p,i)=>`<option value="${i}">${p.n}</option>`).join('');$('pf').onchange=applyP}
+function applyP(){const p=P[$('pf').value||0];if(!p)return;if(p.v)$('vz').value=p.v;$('rt').value=p.r;$('pt').value=p.p;lab()}
+function lab(){$('rv').textContent=(+$('rt').value).toFixed(2);$('pv').textContent=(+$('pt').value).toFixed(2)}
+$('rt').oninput=$('pt').oninput=lab;
+function nuevoP(){const n=$('pn').value.trim();if(!n)return;P.push({n,v:$('vz').value,r:+$('rt').value,p:+$('pt').value});st.set('lv_p',P);fillP();$('pf').value=P.length-1;$('pn').value=''}
+function borraP(){if(P.length<2)return;P.splice($('pf').value,1);st.set('lv_p',P);fillP();applyP()}
+function split(t){return (t.replace(/https?:\/\/\S+/g,'enlace').replace(/[*_#>`~|]+/g,' ').replace(/\s+/g,' ').trim().match(/[^.!?¡¿\n]+[.!?]*|\S+/g)||[]).map(s=>s.trim()).filter(Boolean)}
+function render(){$('rd').innerHTML=ss.map((s,i)=>`<span data-i="${i}">${s.replace(/</g,'&lt;')} </span>`).join('');$('rd').onclick=e=>{const i=e.target.dataset.i;if(i!=null){ix=+i;go()}}}
+function mark(){document.querySelectorAll('#rd span').forEach(s=>s.classList.toggle('on',+s.dataset.i===ix));const e=document.querySelector('#rd span.on');if(e)e.scrollIntoView({block:'nearest'});$('pg').style.width=(ss.length?ix/ss.length*100:0)+'%'}
+function say(){if(!on||ix>=ss.length){stop();return}const my=++tk;mark();
+const u=new SpeechSynthesisUtterance(ss[ix]),v=vs.find(v=>v.voiceURI===$('vz').value);
+if(v){u.voice=v;u.lang=v.lang}else u.lang='es-MX';u.rate=+$('rt').value;u.pitch=+$('pt').value;
+u.onend=()=>{if(on&&my===tk){ix++;say()}};u.onerror=()=>{};S.speak(u)}
+function go(){S.cancel();tk++;on=true;$('pl').textContent='⏸ Pausar';setTimeout(say,60)}
+function tog(){if(S.dummy||!vs.length&&!S.dummy&&0){$('bn').style.display='block';return}if(!on){if(!ss.length||ix>=ss.length||S.paused&&false){}
+const t=$('tx').value;if(!ss.length||ss.join(' ')!==split(t).join(' ')){ss=split(t);ix=0;render()}
+if(!ss.length)return;if(ix>=ss.length)ix=0;go()}else{on=false;tk++;S.cancel();$('pl').textContent='▶ Continuar'}}
+function stop(){on=false;tk++;S.cancel();ix=0;$('pl').textContent='▶ Escuchar';mark()}
+function mv(d){if(!ss.length)return;ix=Math.max(0,Math.min(ss.length-1,ix+d));if(on)go();else mark()}
+$('f').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('tx').value=r.result;stop();ss=[]};r.readAsText(f)}
+function lib(){return st.get('lv_l',[])}
+function guardar(){const t=$('tx').value.trim();if(!t)return;const L=lib();L.unshift({t:t.slice(0,45),x:t});st.set('lv_l',L.slice(0,30));pl()}
+function pl(){const L=lib();$('lb').innerHTML=L.length?L.map((l,i)=>`<div class="li"><a onclick="abrir(${i})">${l.t.replace(/</g,'&lt;')}…</a><button onclick="del(${i})">✕</button></div>`).join(''):'<small>Aún no hay textos guardados.</small>'}
+function abrir(i){$('tx').value=lib()[i].x;stop();ss=[];window.scrollTo(0,0)}
+function del(i){const L=lib();L.splice(i,1);st.set('lv_l',L);pl()}
+let mr,ch=[];
+async function rec(){const b=$('rb');if(mr&&mr.state==='recording'){mr.stop();return}
+try{const s=await navigator.mediaDevices.getUserMedia({audio:true});mr=new MediaRecorder(s);ch=[];
+mr.ondataavailable=e=>ch.push(e.data);
+mr.onstop=()=>{s.getTracks().forEach(t=>t.stop());const a=document.createElement('audio');a.controls=true;const u=URL.createObjectURL(new Blob(ch,{type:mr.mimeType}));a.src=u;const d=document.createElement('a');d.href=u;d.download='mi-voz.webm';d.textContent='⬇ Descargar esta grabación';const w=document.createElement('div');w.append(a,d);$('au').prepend(w);b.textContent='⏺ Grabar';$('rm').textContent=''};
+mr.start();b.textContent='⏹ Detener';$('rm').textContent='Grabando…'}catch(e){$('rm').textContent='No se pudo acceder al micrófono (revisa permisos).'}}
+fillP();loadV();pl();if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
